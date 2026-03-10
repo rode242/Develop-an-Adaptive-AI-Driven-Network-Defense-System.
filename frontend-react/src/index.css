@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --color-obsidian-900: #01040a;
+        --color-obsidian-800: #0d1117;
+        --color-obsidian-700: #161b22;
+        --color-emerald-pro: #10b981;
+        --color-blue-pro: #3b82f6;
+    }
+
+    body {
+        font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        @apply bg-[#01040a] text-gray-400 antialiased selection:bg-accent-emerald/30 selection:text-white overflow-hidden;
+    }
+}
+
+/* Scrollbar: Ultra-Precision */
+::-webkit-scrollbar {
+    width: 2px;
+    height: 2px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(16, 185, 129, 0.3);
+}
+
+/* Elite Pro Layout Utilities */
+.glass-surface {
+    @apply bg-[#0d1117]/60 backdrop-blur-3xl border border-white/[0.04] relative;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
+.glass-panel-elite {
+    @apply bg-[#0d1117]/40 backdrop-blur-xl border border-white/[0.04] hover:border-accent-emerald/20 transition-all duration-300;
+}
+
+.neural-grid {
+    background-image:
+        linear-gradient(to right, rgba(16, 185, 129, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(16, 185, 129, 0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(circle at center, black, transparent 90%);
+}
+
+.scanning-line {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.3), transparent);
+    animation: scan-vertical 4s infinite linear;
+}
+
+@keyframes scan-vertical {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(100vh);
+        opacity: 0;
+    }
+}
+
+.text-glow-emerald {
+    text-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+}
+
+.border-emerald-glow {
+    border-color: rgba(16, 185, 129, 0.15);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.05);
+}
+
+.sidebar-link-active {
+    @apply bg-accent-emerald/10 text-accent-emerald border-r-2 border-accent-emerald;
+}
+
+/* Custom Gradients */
+.bg-elite-dark {
+    background: radial-gradient(60% 60% at 50% 50%, #0d1117 0%, #01040a 100%);
+}
+
+.elite-status-glow {
+    filter: drop-shadow(0 0 8px currentColor);
+}
+
+.forensic-text {
+    @apply text-[10px] font-mono uppercase tracking-[0.2em] font-bold text-gray-500;
+}
