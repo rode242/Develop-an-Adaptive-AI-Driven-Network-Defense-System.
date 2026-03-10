@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL — Live ML Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap');
+
+  :root {
+    --bg-void:#020408;--bg-panel:#040d14;--bg-card:#071520;--bg-card2:#060f1a;
+    --border:#0d2d44;--border-glow:#0a7abf;
+    --cyan:#00d4ff;--green:#00ff88;--red:#ff2244;--orange:#ff8c00;--yellow:#ffd700;
+    --text:#cce8f4;--dim:#4a7a95;--muted:#1e4a62;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg-void);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px;overflow-x:hidden;}
+  body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+  /* HEADER */
+  header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:linear-gradient(180deg,rgba(0,20,35,.98),rgba(4,13,20,.95));border-bottom:1px solid var(--border);box-shadow:0 2px 30px rgba(0,0,0,.8),0 1px 0 rgba(0,212,255,.15);}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand-icon{width:42px;height:42px;border:1.5px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:20px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:rgba(0,212,255,.05);box-shadow:0 0 20px rgba(0,212,255,.4);animation:pulse-icon 3s ease-in-out infinite;}
+  @keyframes pulse-icon{0%,100%{box-shadow:0 0 20px rgba(0,212,255,.4)}50%{box-shadow:0 0 40px rgba(0,212,255,.8)}}
+  h1{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);letter-spacing:6px;text-shadow:0 0 20px rgba(0,212,255,.6);}
+  .brand p{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:3px;}
+  .hdr-right{display:flex;gap:16px;align-items:center;}
+  .pill{display:flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:1px;}
+  .pill-green{border-color:var(--green);color:var(--green);background:rgba(0,255,136,.05);}
+  .pill-red{border-color:var(--red);color:var(--red);background:rgba(255,34,68,.08);animation:flash 1.2s ease-in-out infinite;}
+  .pill-grey{border-color:var(--dim);color:var(--dim);background:transparent;}
+  @keyframes flash{0%,100%{opacity:1}50%{opacity:.5}}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:blink 1.5s step-end infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+  #clock{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--dim);}
+
+  /* LAYOUT */
+  .grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr 340px;height:calc(100vh - 72px);}
+  .left{display:grid;grid-template-rows:1fr 195px;border-right:1px solid var(--border);}
+  .right{display:flex;flex-direction:column;overflow:hidden;}
+
+  /* PANEL */
+  .panel{border-bottom:1px solid var(--border);overflow:hidden;background:var(--bg-panel);position:relative;}
+  .ph{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;background:rgba(0,0,0,.4);border-bottom:1px solid var(--border);}
+  .pt{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:3px;}
+  .badge{font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 8px;border:1px solid;border-radius:2px;}
+  .b-live{border-color:var(--green);color:var(--green);background:rgba(0,255,136,.08);}
+  .b-ai{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,.06);}
+  .b-auto{border-color:var(--orange);color:var(--orange);background:rgba(255,140,0,.08);}
+  .b-conn{border-color:var(--dim);color:var(--dim);}
+  .b-ok{border-color:var(--green);color:var(--green);}
+
+  /* CANVAS */
+  #net{width:100%;height:100%;display:block;cursor:crosshair;}
+
+  /* STATS */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);height:195px;}
+  .sc{padding:16px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;background:var(--bg-card);}
+  .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .sc.c::before{background:linear-gradient(90deg,transparent,var(--cyan),transparent);}
+  .sc.r::before{background:linear-gradient(90deg,transparent,var(--red),transparent);}
+  .sc.g::before{background:linear-gradient(90deg,transparent,var(--green),transparent);}
+  .sc.o::before{background:linear-gradient(90deg,transparent,var(--orange),transparent);}
+  .sl{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:2px;}
+  .sv{font-family:'Orbitron',monospace;font-size:30px;font-weight:700;line-height:1;}
+  .sc.c .sv{color:var(--cyan);text-shadow:0 0 15px rgba(0,212,255,.5);}
+  .sc.r .sv{color:var(--red);text-shadow:0 0 15px rgba(255,34,68,.5);}
+  .sc.g .sv{color:var(--green);text-shadow:0 0 12px rgba(0,255,136,.4);}
+  .sc.o .sv{color:var(--orange);}
+  .sd{font-family:'Share Tech Mono',monospace;font-size:10px;}
+  .dup{color:var(--red);}
+  .ddn{color:var(--green);}
+  .spark{width:100%;height:26px;}
+
+  /* RIGHT SECTIONS */
+  .rs{flex:none;border-bottom:1px solid var(--border);background:var(--bg-card2);}
+  .rs.fill{flex:1;overflow-y:auto;}
+  .rs.fill::-webkit-scrollbar{width:3px;}
+  .rs.fill::-webkit-scrollbar-thumb{background:var(--border-glow);}
+
+  /* ML BARS */
+  .mlp{padding:12px 14px;}
+  .cbw{margin-bottom:9px;}
+  .clr{display:flex;justify-content:space-between;margin-bottom:3px;}
+  .cl{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:1px;}
+  .cp{font-family:'Orbitron',monospace;font-size:11px;}
+  .ct{height:5px;background:var(--bg-void);border:1px solid var(--border);overflow:hidden;}
+  .cf{height:100%;transition:width 1s cubic-bezier(.4,0,.2,1);}
+  .fr{background:linear-gradient(90deg,rgba(255,34,68,.4),var(--red));}
+  .fo{background:linear-gradient(90deg,rgba(255,140,0,.4),var(--orange));}
+  .fy{background:linear-gradient(90deg,rgba(255,215,0,.4),var(--yellow));}
+  .fc{background:linear-gradient(90deg,rgba(0,212,255,.4),var(--cyan));}
+
+  /* LOG */
+  .rlog{padding:8px 12px;}
+  .le{display:flex;gap:8px;padding:6px 9px;border-left:2px solid;margin-bottom:4px;font-family:'Share Tech Mono',monospace;font-size:10px;animation:si .35s ease-out;background:rgba(0,0,0,.3);}
+  @keyframes si{from{transform:translateX(16px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .le.block{border-color:var(--red);}
+  .le.honey{border-color:var(--orange);}
+  .le.alert{border-color:var(--yellow);}
+  .le.ok{border-color:var(--green);}
+  .lt{color:var(--muted);min-width:52px;}
+  .la{font-weight:700;min-width:64px;}
+  .le.block .la{color:var(--red);}
+  .le.honey .la{color:var(--orange);}
+  .le.alert .la{color:var(--yellow);}
+  .le.ok .la{color:var(--green);}
+  .ld{color:var(--dim);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+
+  /* INTEL FEED */
+  .ifeed{padding:8px 12px;}
+  .ii{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--border);margin-bottom:5px;position:relative;background:rgba(0,0,0,.3);animation:fi .4s ease-out;cursor:pointer;transition:border-color .3s;}
+  @keyframes fi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+  .ii:hover{border-color:var(--border-glow);}
+  .ii::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+  .ii.ic::before{background:var(--red);}
+  .ii.ih::before{background:var(--orange);}
+  .ii.im::before{background:var(--yellow);}
+  .ii.il::before{background:var(--green);}
+  .itop{display:flex;justify-content:space-between;align-items:center;}
+  .ititle{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);}
+  .isev{font-family:'Orbitron',monospace;font-size:8px;padding:1px 5px;border:1px solid currentColor;letter-spacing:1px;}
+  .ic .isev{color:var(--red);}.ih .isev{color:var(--orange);}.im .isev{color:var(--yellow);}.il .isev{color:var(--green);}
+  .imeta{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);display:flex;gap:10px;}
+  .idesc{font-size:10px;color:var(--dim);}
+
+  /* TOOLTIP */
+  #tip{position:fixed;pointer-events:none;z-index:1000;background:rgba(4,13,20,.97);border:1px solid var(--border-glow);padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);box-shadow:0 0 20px rgba(0,212,255,.4);opacity:0;transition:opacity .2s;min-width:160px;}
+  #tip.vis{opacity:1;}
+  #tip h4{font-family:'Orbitron',monospace;font-size:11px;color:var(--cyan);margin-bottom:6px;}
+  #tip p{color:var(--dim);margin-bottom:3px;}
+
+  /* CONNECTION STATUS BAR */
+  #connBar{font-family:'Share Tech Mono',monospace;font-size:10px;padding:4px 16px;background:rgba(0,0,0,.5);border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:center;color:var(--dim);}
+  #connBar span{color:var(--cyan);}
+
+  /* Legend */
+  .leg{position:absolute;bottom:12px;left:16px;display:flex;gap:14px;align-items:center;}
+  .li{display:flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);}
+  .ld2{width:9px;height:9px;border-radius:50%;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">⬡</div>
+    <div>
+      <h1>SENTINEL</h1>
+      <p>ADAPTIVE AI-DRIVEN NETWORK DEFENSE — LIVE ML MODE</p>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="pill pill-red" id="threatPill"><span class="dot"></span><span id="threatTxt">0 THREATS</span></div>
+    <div class="pill pill-green" id="enginePill"><span class="dot"></span>ML ENGINE</div>
+    <div class="pill pill-grey" id="connPill"><span class="dot"></span><span id="connTxt">OFFLINE</span></div>
+    <div id="clock">--:--:-- UTC</div>
+  </div>
+</header>
+
+<div id="connBar">
+  BACKEND: <span id="backendUrl">http://localhost:5001</span> &nbsp;|&nbsp;
+  EVENTS RECEIVED: <span id="evtCount">0</span> &nbsp;|&nbsp;
+  LAST EVENT: <span id="lastEvt">—</span> &nbsp;|&nbsp;
+  <span id="connState" style="color:var(--red)">● DISCONNECTED</span>
+</div>
+
+<div class="grid">
+
+  <div class="left">
+    <div class="panel" style="position:relative;">
+      <div class="ph">
+        <span class="pt">⬡ Network Graph</span>
+        <div style="display:flex;gap:7px;">
+          <span class="badge b-live">● LIVE</span>
+          <span class="badge b-ai" id="modelBadge">LOADING...</span>
+        </div>
+      </div>
+      <canvas id="net"></canvas>
+      <div class="leg">
+        <div class="li"><div class="ld2" style="background:#00ff88"></div>SAFE</div>
+        <div class="li"><div class="ld2" style="background:#ffd700"></div>SUSPICIOUS</div>
+        <div class="li"><div class="ld2" style="background:#ff2244"></div>THREAT</div>
+        <div class="li"><div class="ld2" style="background:#ff6b35"></div>HONEYPOT</div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="sc c">
+        <div class="sl">FLOWS SCORED</div>
+        <div class="sv" id="sFlows">0</div>
+        <div class="sd ddn">▲ via ML engine</div>
+        <canvas class="spark" id="sp1"></canvas>
+      </div>
+      <div class="sc r">
+        <div class="sl">THREATS DETECTED</div>
+        <div class="sv" id="sThreats">0</div>
+        <div class="sd dup" id="sThreatPct">0% of flows</div>
+        <canvas class="spark" id="sp2"></canvas>
+      </div>
+      <div class="sc g">
+        <div class="sl">AUTO-BLOCKED</div>
+        <div class="sv" id="sBlocked">0</div>
+        <div class="sd ddn" id="sBlockPct">0% blocked</div>
+        <canvas class="spark" id="sp3"></canvas>
+      </div>
+      <div class="sc o">
+        <div class="sl">HONEYPOTTED</div>
+        <div class="sv" id="sHoney">0</div>
+        <div class="sd" style="color:var(--orange)">● TRAPPED</div>
+        <canvas class="spark" id="sp4"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+
+    <div class="rs">
+      <div class="ph"><span class="pt">🧠 ML Confidence</span><span class="badge b-ai">REAL-TIME</span></div>
+      <div class="mlp">
+        <div class="cbw">
+          <div class="clr"><span class="cl">DDOS</span><span class="cp" id="pc1" style="color:var(--red)">0%</span></div>
+          <div class="ct"><div class="cf fr" id="cf1" style="width:0%"></div></div>
+        </div>
+        <div class="cbw">
+          <div class="clr"><span class="cl">PORT SCAN</span><span class="cp" id="pc2" style="color:var(--orange)">0%</span></div>
+          <div class="ct"><div class="cf fo" id="cf2" style="width:0%"></div></div>
+        </div>
+        <div class="cbw">
+          <div class="clr"><span class="cl">SQL INJECTION</span><span class="cp" id="pc3" style="color:var(--yellow)">0%</span></div>
+          <div class="ct"><div class="cf fy" id="cf3" style="width:0%"></div></div>
+        </div>
+        <div class="cbw">
+          <div class="clr"><span class="cl">C2 BEACON</span><span class="cp" id="pc4" style="color:var(--cyan)">0%</span></div>
+          <div class="ct"><div class="cf fc" id="cf4" style="width:0%"></div></div>
+        </div>
+        <div style="margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);">
+          LAST FLOW: <span id="lastFlowInfo" style="color:var(--dim)">awaiting data…</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="rs">
+      <div class="ph"><span class="pt">⚡ Response Log</span><span class="badge b-auto">AUTO</span></div>
+      <div class="rlog" id="rlog"></div>
+    </div>
+
+    <div class="rs">
+      <div class="ph"><span class="pt">⚙ Backend Config</span></div>
+      <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="apiUrl" value="http://localhost:5000"
+            style="flex:1;background:rgba(0,0,0,.5);border:1px solid var(--border);color:var(--text);padding:6px 10px;font-family:'Share Tech Mono',monospace;font-size:10px;outline:none;">
+          <button onclick="reconnect()" style="padding:6px 12px;background:rgba(0,212,255,.1);border:1px solid var(--cyan);color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;">CONNECT</button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="sendTestFlow()" style="flex:1;padding:6px;background:rgba(0,255,136,.08);border:1px solid var(--green);color:var(--green);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;">▶ TEST FLOW</button>
+          <button onclick="sendDdosFlow()" style="flex:1;padding:6px;background:rgba(255,34,68,.08);border:1px solid var(--red);color:var(--red);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;">▶ SIMULATE DDOS</button>
+        </div>
+        <div id="testResult" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);min-height:20px;"></div>
+      </div>
+    </div>
+
+    <div class="rs fill">
+      <div class="ph"><span class="pt">📡 Threat Intel</span><span class="badge b-conn" id="intelBadge">LIVE</span></div>
+      <div class="ifeed" id="ifeed"></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE - FIXED BASE URL
+// ═══════════════════════════════════════════════
+let BASE = "http://localhost:5000"; 
+let evtSource = null;
+let totalFlows = 0, totalThreats = 0, totalBlocked = 0, totalHoney = 0;
+let evtCount = 0;
+
+const hist = { sp1:[], sp2:[], sp3:[], sp4:[] };
+['sp1','sp2','sp3','sp4'].forEach(k => hist[k] = Array(20).fill(0));
+
+// ═══════════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════════
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toUTCString().split(' ')[4] + ' UTC';
+}, 1000);
+
+// ═══════════════════════════════════════════════
+// SSE CONNECTION - IMPROVED ERROR HANDLING
+// ═══════════════════════════════════════════════
+function connect(base) {
+  BASE = base.replace(/\/$/, ""); // Remove trailing slash
+  document.getElementById('backendUrl').textContent = BASE;
+  document.getElementById('connState').textContent = '● CONNECTING';
+  document.getElementById('connState').style.color = 'var(--yellow)';
+  document.getElementById('connTxt').textContent = 'CONNECTING…';
+
+  if (evtSource) evtSource.close();
+
+  console.log("Attempting SSE connection to:", BASE + '/api/stream');
+  evtSource = new EventSource(BASE + '/api/stream');
+
+  evtSource.onopen = () => {
+    console.log("Connection established!");
+    document.getElementById('connState').textContent = '● CONNECTED';
+    document.getElementById('connState').style.color = 'var(--green)';
+    document.getElementById('connTxt').textContent = 'LIVE';
+    document.getElementById('connPill').className = 'pill pill-green';
+    loadModelInfo();
+  };
+
+  evtSource.addEventListener('detection', e => {
+    try {
+      const data = JSON.parse(e.data);
+      handleDetection(data);
+    } catch(err) {
+      console.error("Failed to parse SSE data:", err);
+    }
+  });
+
+  evtSource.onerror = (err) => {
+    console.error("SSE Error occurred. Make sure app.py is running on port 5000.");
+    document.getElementById('connState').textContent = '● DISCONNECTED';
+    document.getElementById('connState').style.color = 'var(--red)';
+    document.getElementById('connTxt').textContent = 'OFFLINE';
+    document.getElementById('connPill').className = 'pill pill-grey';
+  };
+}
+
+function reconnect() {
+  const url = document.getElementById('apiUrl').value.trim();
+  connect(url);
+}
+
+// ═══════════════════════════════════════════════
+// LOAD MODEL INFO
+// ═══════════════════════════════════════════════
+async function loadModelInfo() {
+  try {
+    const res = await fetch(BASE + '/api/model/info');
+    const info = await res.json();
+    document.getElementById('modelBadge').textContent =
+      info.algorithms ? info.algorithms.join(' + ') : 'READY';
+  } catch(e) {
+    document.getElementById('modelBadge').textContent = 'MODEL OFFLINE';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// HANDLE DETECTION EVENT
+// ═══════════════════════════════════════════════
+function handleDetection(d) {
+  evtCount++;
+  totalFlows++;
+  document.getElementById('evtCount').textContent = evtCount;
+  document.getElementById('lastEvt').textContent =
+    new Date().toTimeString().split(' ')[0];
+
+  if (d.is_threat) {
+    totalThreats++;
+    if (d.response && d.response.action === 'block') totalBlocked++;
+    if (d.response && d.response.action === 'honeypot') totalHoney++;
+  }
+
+  document.getElementById('sFlows').textContent = totalFlows.toLocaleString();
+  document.getElementById('sThreats').textContent = totalThreats;
+  document.getElementById('sBlocked').textContent = totalBlocked;
+  document.getElementById('sHoney').textContent = totalHoney;
+  document.getElementById('sThreatPct').textContent =
+    totalFlows ? ((totalThreats/totalFlows)*100).toFixed(0) + '% of flows' : '0%';
+  document.getElementById('sBlockPct').textContent =
+    totalThreats ? ((totalBlocked/totalThreats)*100).toFixed(0) + '% blocked' : '0%';
+
+  document.getElementById('threatTxt').textContent =
+    totalThreats + ' THREAT' + (totalThreats !== 1 ? 'S' : '');
+
+  if (d.class_scores) {
+    const s = d.class_scores;
+    setBar('cf1','pc1', (s.ddos||0)*100, 'var(--red)');
+    setBar('cf2','pc2', (s.portscan||0)*100, 'var(--orange)');
+    setBar('cf3','pc3', (s.sqli||0)*100, 'var(--yellow)');
+    setBar('cf4','pc4', (s.c2_beacon||0)*100, 'var(--cyan)');
+    document.getElementById('lastFlowInfo').textContent =
+      `${d.label} (${(d.confidence*100).toFixed(0)}%) from ${d.src_ip||'?'}`;
+  }
+
+  hist.sp1.push(totalFlows); hist.sp1.shift();
+  hist.sp2.push(totalThreats); hist.sp2.shift();
+  hist.sp3.push(totalBlocked); hist.sp3.shift();
+  hist.sp4.push(totalHoney); hist.sp4.shift();
+  drawSpark('sp1', hist.sp1, '#00d4ff');
+  drawSpark('sp2', hist.sp2, '#ff2244');
+  drawSpark('sp3', hist.sp3, '#00ff88');
+  drawSpark('sp4', hist.sp4, '#ff8c00');
+
+  if (d.response && d.response.action !== 'none') {
+    addLog(d.response);
+  }
+
+  if (d.is_threat) {
+    addIntel(d);
+    spawnThreatNode(d);
+  }
+}
+
+function setBar(fillId, pctId, pct, color) {
+  const v = Math.min(100, pct);
+  document.getElementById(fillId).style.width = v + '%';
+  document.getElementById(pctId).textContent = v.toFixed(0) + '%';
+  document.getElementById(pctId).style.color = color;
+}
+
+// ═══════════════════════════════════════════════
+// RESPONSE LOG
+// ═══════════════════════════════════════════════
+const ACTION_LABEL = { block:'BLOCKED', honeypot:'HONEYPOT', ratelimit:'FLAGGED', monitor:'MONITOR', none:'OK' };
+
+function addLog(resp) {
+  const log = document.getElementById('rlog');
+  const cls = resp.css_class || 'alert';
+  const el = document.createElement('div');
+  el.className = `le ${cls}`;
+  el.innerHTML = `<span class="lt">${resp.timestamp||''}</span>
+    <span class="la">${ACTION_LABEL[resp.action]||resp.action.toUpperCase()}</span>
+    <span class="ld">${resp.message}</span>`;
+  log.insertBefore(el, log.firstChild);
+  while (log.children.length > 7) log.removeChild(log.lastChild);
+}
+
+// ═══════════════════════════════════════════════
+// INTEL FEED
+// ═══════════════════════════════════════════════
+const SEV_MAP = {
+  critical: { cls:'ic', sev:'CRITICAL' },
+  high:     { cls:'ih', sev:'HIGH' },
+  medium:   { cls:'im', sev:'MEDIUM' },
+  none:     { cls:'il', sev:'LOW' },
+};
+
+function addIntel(d) {
+  const feed = document.getElementById('ifeed');
+  const sm = SEV_MAP[d.severity] || SEV_MAP.medium;
+  const el = document.createElement('div');
+  el.className = `ii ${sm.cls}`;
+  el.innerHTML = `
+    <div class="itop">
+      <span class="ititle">${d.label} Detected</span>
+      <span class="isev">${sm.sev}</span>
+    </div>
+    <div class="imeta">
+      <span>SRC: ${d.src_ip}</span>
+      <span>CONF: ${(d.confidence*100).toFixed(0)}%</span>
+      <span>just now</span>
+    </div>
+    <div class="idesc">Anomaly score: ${(d.anomaly_score*100).toFixed(0)}% — Response: ${d.response?.action||'—'}</div>`;
+  feed.insertBefore(el, feed.firstChild);
+  while (feed.children.length > 15) feed.removeChild(feed.lastChild);
+}
+
+// ═══════════════════════════════════════════════
+// TEST BUTTONS
+// ═══════════════════════════════════════════════
+async function sendTestFlow() {
+  try {
+    const res = await fetch(BASE + '/api/simulate');
+    const d = await res.json();
+    document.getElementById('testResult').textContent =
+      `→ ${d.label} (${(d.confidence*100).toFixed(0)}%) | action: ${d.response?.action}`;
+    document.getElementById('testResult').style.color = d.is_threat ? 'var(--red)' : 'var(--green)';
+  } catch(e) {
+    document.getElementById('testResult').textContent = 'Error: ' + e.message;
+    document.getElementById('testResult').style.color = 'var(--red)';
+  }
+}
+
+async function sendDdosFlow() {
+  try {
+    const flow = {
+      src_ip: `${Math.floor(Math.random()*200)+10}.0.0.1`,
+      bytes_per_sec: 250000, packets_per_sec: 15000,
+      avg_packet_size: 62, port_dst: 80, duration_sec: 0.5,
+      tcp_flags_ratio: 0.97, unique_dst_ports: 1,
+      unique_src_ips: 800, icmp_ratio: 0.6, payload_entropy: 0.8,
+    };
+    const res = await fetch(BASE + '/api/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(flow),
+    });
+    const d = await res.json();
+    document.getElementById('testResult').textContent =
+      `DDoS test → ${(d.confidence*100).toFixed(0)}% confidence | ${d.response?.action}`;
+    document.getElementById('testResult').style.color = 'var(--red)';
+    handleDetection(d);
+  } catch(e) {
+    document.getElementById('testResult').textContent = 'Backend offline — ' + e.message;
+    document.getElementById('testResult').style.color = 'var(--orange)';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// NETWORK GRAPH
+// ═══════════════════════════════════════════════
+const canvas = document.getElementById('net');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = canvas.parentElement.clientHeight - 44;
+}
+resize(); window.addEventListener('resize', () => { resize(); initGraph(); });
+
+let nodes = [], edges = [], particles = [], hoveredNode = null;
+
+const NODE_T = {
+  gateway: {color:'#00d4ff', size:18},
+  server:  {color:'#00ff88', size:13},
+  client:  {color:'#4a7a95', size:7},
+  threat:  {color:'#ff2244', size:11},
+  honeypot:{color:'#ff6b35', size:11},
+  blocked: {color:'#1e4a62', size:7},
+};
+
+function initGraph() {
+  const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2;
+  nodes = [];
+  nodes.push({id:0, x:cx, y:cy, type:'gateway', vx:0, vy:0, label:'CORE', ip:'10.0.0.1', info:'Core Gateway'});
+  const angles = [0,72,144,216,288];
+  angles.forEach((a,i) => nodes.push({id:i+1, x:cx+Math.cos(a*Math.PI/180)*95, y:cy+Math.sin(a*Math.PI/180)*95,
+    type:'server', vx:0, vy:0, label:`SRV${i+1}`, ip:`10.0.1.${i+1}`, info:'Server'}));
+  nodes.push({id:6, x:cx-155, y:cy-75, type:'honeypot', vx:0, vy:0, label:'HONEY', ip:'10.0.99.1', info:'Honeypot'});
+  nodes.push({id:7, x:cx+135, y:cy+95, type:'honeypot', vx:0, vy:0, label:'HONEY', ip:'10.0.99.2', info:'Honeypot'});
+  for (let i=0; i<14; i++) {
+    const a = Math.random()*Math.PI*2, r = 125+Math.random()*90;
+    nodes.push({id:8+i, x:Math.max(25,Math.min(W-25,cx+Math.cos(a)*r)), y:Math.max(25,Math.min(H-25,cy+Math.sin(a)*r)),
+      type:'client', vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35,
+      label:'', ip:`192.168.${Math.floor(Math.random()*4)}.${10+i}`, info:'Client', pp:Math.random()*Math.PI*2});
+  }
+  edges = [];
+  [1,2,3,4,5].forEach(s => edges.push({from:0,to:s,intensity:.6}));
+  nodes.filter(n=>n.type==='client').forEach(n => edges.push({from:[1,2,3,4,5][Math.floor(Math.random()*5)],to:n.id,intensity:Math.random()}));
+  edges.push({from:6,to:0,intensity:.2}); edges.push({from:7,to:0,intensity:.2});
+}
+
+function spawnThreatNode(detection) {
+  const W = canvas.width, H = canvas.height;
+  const id = 100 + Math.floor(Math.random()*9000);
+  nodes.push({
+    id, x: Math.random()*W*.8 + W*.1, y: Math.random()*H*.8 + H*.1,
+    type:'threat', vx:(Math.random()-.5)*.5, vy:(Math.random()-.5)*.5,
+    label:'ATK', ip: detection.src_ip||'?', info: detection.label, pp:0,
+    ttl: 180,
+  });
+  const target = [1,2,3,4,5][Math.floor(Math.random()*5)];
+  edges.push({from:id, to:target, intensity:.7, temp:true});
+  setTimeout(() => {
+    const idx = nodes.findIndex(n=>n.id===id);
+    if (idx>=0) nodes[idx].type = detection.response?.action === 'block' ? 'blocked' : 'client';
+  }, 6000);
+}
+
+function drawGraph(t) {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  edges.forEach(e => {
+    const a = nodes.find(n=>n.id===e.from), b = nodes.find(n=>n.id===e.to);
+    if (!a||!b) return;
+    const isThr = a.type==='threat'||b.type==='threat';
+    ctx.beginPath();
+    ctx.strokeStyle = isThr ? `rgba(255,34,68,${.15+e.intensity*.25})` : `rgba(0,212,255,${.1+e.intensity*.2})`;
+    ctx.lineWidth = isThr ? 1.5 : .7;
+    ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    if (Math.random()<.012) particles.push({x:a.x,y:a.y,tx:b.x,ty:b.y,p:0,c:isThr?'#ff2244':'#00d4ff',s:.015+Math.random()*.02});
+  });
+  particles = particles.filter(p=>p.p<1);
+  particles.forEach(p => {
+    p.p = Math.min(1, p.p+p.s);
+    const px = p.x+(p.tx-p.x)*p.p, py = p.y+(p.ty-p.y)*p.p;
+    ctx.beginPath(); ctx.arc(px,py,2.2,0,Math.PI*2);
+    ctx.fillStyle = p.c; ctx.fill();
+  });
+  nodes.forEach(n => {
+    if (!['gateway','server','honeypot'].includes(n.type)) {
+      n.x+=n.vx; n.y+=n.vy;
+      if(n.x<20||n.x>W-20) n.vx*=-1;
+      if(n.y<20||n.y>H-20) n.vy*=-1;
+    }
+    const info = NODE_T[n.type]||NODE_T.client;
+    const sz = info.size * (hoveredNode?.id===n.id ? 1.4 : 1);
+    let color = info.color;
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,sz,0,Math.PI*2);
+    ctx.fillStyle=color; ctx.fill();
+    ctx.strokeStyle=hoveredNode?.id===n.id?'#fff':color; ctx.stroke();
+  });
+}
+
+function drawSpark(id, data, color) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  c.width = c.parentElement.clientWidth-30; c.height=26;
+  const x2 = c.getContext('2d');
+  x2.clearRect(0,0,c.width,c.height);
+  const mx=Math.max(...data)||1, mn=Math.min(...data);
+  const rng=mx-mn||1, step=c.width/(data.length-1);
+  x2.beginPath();
+  data.forEach((v,i)=>{
+    const px=i*step, py=c.height-((v-mn)/rng)*(c.height-4)-2;
+    i===0?x2.moveTo(px,py):x2.lineTo(px,py);
+  });
+  x2.strokeStyle=color; x2.lineWidth=1.5; x2.stroke();
+}
+
+// ═══════════════════════════════════════════════
+// BOOT - RUN ONLY AFTER DOM LOADED
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  resize();
+  initGraph();
+  (function loop(t){drawGraph(t);requestAnimationFrame(loop);})();
+  connect(BASE);
+});
+</script>
+</body>
+</html>
